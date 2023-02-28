@@ -138,7 +138,7 @@ static void handle_fullscreen_xevent(struct ow_target_window* target_info) {
   }
 }
 
-static void check_and_handle_window(xcb_window_t wid, struct ow_target_window* target_info) {
+static void check_window_title(xcb_window_t wid, struct ow_target_window* target_info) {
   if (target_info->window_id != XCB_WINDOW_NONE) {
     if (target_info->window_id != wid) {
       if (target_info->is_focused) {
@@ -174,6 +174,10 @@ static void check_and_handle_window(xcb_window_t wid, struct ow_target_window* t
   if (!is_equal) {
     return;
   }
+}
+
+static void check_and_handle_window(xcb_window_t wid, struct ow_target_window* target_info) {
+
 
   if (target_info->window_id != XCB_WINDOW_NONE) {
     uint32_t mask[] = { XCB_EVENT_MASK_NO_EVENT };
@@ -219,6 +223,7 @@ static void hook_proc(xcb_generic_event_t* generic_event) {
     xcb_destroy_notify_event_t* event = (xcb_destroy_notify_event_t*)generic_event;
     if (event->window == target_info.window_id) {
       target_info.is_destroyed = true;
+      check_window_title(active_window, &target_info);
       check_and_handle_window(XCB_WINDOW_NONE, &target_info);
     }
     return;
@@ -245,10 +250,12 @@ static void hook_proc(xcb_generic_event_t* generic_event) {
         uint32_t mask[] = { XCB_EVENT_MASK_PROPERTY_CHANGE };
         xcb_change_window_attributes(x_conn, active_window, XCB_CW_EVENT_MASK, mask);
       }
+      check_window_title(active_window, &target_info);
       check_and_handle_window(active_window, &target_info);
     } else if (event->window == target_info.window_id && event->atom == ATOM_NET_WM_STATE) {
       handle_fullscreen_xevent(&target_info);
     } else if (event->window == active_window && event->atom == ATOM_NET_WM_NAME) {
+      check_window_title(active_window, &target_info);
       check_and_handle_window(active_window, &target_info);
     }
     return;
@@ -286,6 +293,7 @@ static void hook_thread(void* _arg) {
     // listen for `_NET_WM_NAME`
     uint32_t mask[] = { XCB_EVENT_MASK_PROPERTY_CHANGE };
     xcb_change_window_attributes(x_conn, active_window, XCB_CW_EVENT_MASK, mask);
+    check_window_title(active_window, &target_info);
     check_and_handle_window(active_window, &target_info);
   }
   xcb_flush(x_conn);
